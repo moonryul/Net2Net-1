@@ -126,7 +126,7 @@ class Net(nn.Module):
                                       nn.Conv2d(30, 30, kernel_size=5, padding=2))
         self.fc1 = nn.Linear(480, 50)
 
-
+#create a teacher net 
 model = Net()
 if args.cuda:
     model.cuda()
@@ -171,7 +171,7 @@ def test():
     return 100. * correct / len(test_loader.dataset)
 
 print("\n\n > Teacher training ... ")
-# treacher training
+#  train the teacher net
 for epoch in range(1, args.epochs + 1):
     train(epoch)
     teacher_accu = test()
@@ -180,13 +180,15 @@ for epoch in range(1, args.epochs + 1):
 # wider student training
 print("\n\n > Wider Student training ... ")
 model_ = Net()
-model_ = copy.deepcopy(model)
+model_ = copy.deepcopy(model) # copy the teacher net nodel to the student net model_
 
 del model
 model = model_
-model.net2net_wider()
+model.net2net_wider() # make the student net wider
 model.cuda()
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+
+#Train the wider student net
 for epoch in range(1, args.epochs + 1):
     train(epoch)
     wider_accu = test()
@@ -194,12 +196,12 @@ for epoch in range(1, args.epochs + 1):
 
 # wider + deeper student training
 print("\n\n > Wider+Deeper Student training ... ")
-model_ = Net()
-model_ = copy.deepcopy(model)
+model_ = Net() #create a new student net model_
+model_ = copy.deepcopy(model) # copy the wider student model (which is now the teacher net) to the new student net model_
 
 del model
 model = model_
-model.net2net_deeper()
+model.net2net_deeper() # make the wider student deeper as well
 model.cuda()
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 for epoch in range(1, args.epochs + 1):
@@ -213,7 +215,7 @@ model_ = Net()
 
 del model
 model = model_
-model.define_wider()
+model.define_wider() # create a wider teacher net
 model.cuda()
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 for epoch in range(1, 2*(args.epochs) + 1):
@@ -227,16 +229,22 @@ model_ = Net()
 
 del model
 model = model_
-model.define_wider_deeper()
+model.define_wider_deeper() # create a wider and deeper teacher net
 model.cuda()
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 for epoch in range(1, 3*(args.epochs) + 1):
     train(epoch)
     wider_deeper_teacher_accu = test()
 
+# Compare the accuracies of four models
 
+# THe first two models are adapted versions of the smaller teacher net
 print(" -> Teacher:\t{}".format(teacher_accu))
-print(" -> Wider model:\t{}".format(wider_accu))
-print(" -> Deeper-Wider model:\t{}".format(deeper_accu))
+print(" -> Wider Student model:\t{}".format(wider_accu))
+
+print(" -> Deeper-Wider Student  model:\t{}".format(deeper_accu))
+
+
+#The last two models are teacher models made wider and wider and deeper directly and trained from scratch
 print(" -> Wider teacher:\t{}".format(wider_teacher_accu))
 print(" -> Deeper-Wider teacher:\t{}".format(wider_deeper_teacher_accu))
