@@ -13,6 +13,7 @@ import copy
 
 
 # Training settings
+# https://docs.python.org/3/library/argparse.html
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
@@ -60,35 +61,62 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()
+        #refer to https://datascience.stackexchange.com/questions/40906/determining-size-of-fc-layer-after-conv-layer-in-pytorch
+        # to see how the size of the input vector to fc1 is 320 in this network
         self.fc1 = nn.Linear(320, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = x.view(-1, x.size(1)*x.size(2)*x.size(3))
+        x = F.relu(F.max_pool2d(self.conv1(x), 2)) # max-pool it  with 2x2 kernel,
+                                                    # the default stride = kernel size
+        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2)) # max-pool it  with 2x2 kernel,
+                                                    # the default stride = kernel size
+          
+        x = x.view(-1, x.size(1)*x.size(2)*x.size(3))  #x : B x C x H x W  reshaped into B x  x.size(1)*x.size(2)*x.size(3)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
         return F.log_softmax(x)
 
+    # define a student net whose layers are wider than the teacher net
+
+   # Increase the width of self.conv1 from 10 to 15'
+   # Increaase the width of self.conv2 from 20 to 30
+
+     # The widths of the original teacher: 
+    #   self.conv1 = nn.Conv2d(1, 10, kernel_size=5) # stride = 1 by default ,p=0
+    #   self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
     def net2net_wider(self):
-        self.conv1, self.conv2, _ = wider(self.conv1, self.conv2, 15, noise_var=0.01)
-        self.conv2, self.fc1, _ = wider(self.conv2, self.fc1, 30, noise_var=0.01)
+        self.conv1, self.conv2, _ = wider(self.conv1, self.conv2, 15, noise_var=0.01) # increase the width of layer self.conv1, 
+                                                                                      # which also changes the weight matrix of the next layer, self.conv2
+        self.conv2, self.fc1, _ = wider(self.conv2, self.fc1, 30, noise_var=0.01) # increate the width of self.conv2 layer, which also changes the weight matrix of self.fc1
         print(self)
 
+     
+    # define a student net with more layers than  teacher net
     def net2net_deeper(self):
-        s = deeper(self.conv1, nn.ReLU, bnorm_flag=False)
+        s = deeper(self.conv1, nn.ReLU, bnorm_flag=False) # add a new layer onto self.conv1; use ReLU for the activation function of the new layer;
+                                                          # The in_channels and the out_channels of the new layer are the same as the out_channels of self.conv1
+                                                          # do not add a batch normalization layer
         self.conv1 = s
         s = deeper(self.conv2, nn.ReLU, bnorm_flag=False)
         self.conv2 = s
         print(self)
 
+        
+    # Create a wider teacher net
+    # The size of the original teacher: 
+    #   self.conv1 = nn.Conv2d(1, 10, kernel_size=5) # stride = 1 by default ,p=0
+    #   self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
+    #   self.fc1 = nn.Linear(320, 50)
+        
     def define_wider(self):
         self.conv1 = nn.Conv2d(1, 15, kernel_size=5)
         self.conv2 = nn.Conv2d(15, 30, kernel_size=5)
         self.fc1 = nn.Linear(480, 50)
 
+    # Create a new teacher which is wider and deeper than the original teacher
+        
     def define_wider_deeper(self):
         self.conv1 = nn.Sequential(nn.Conv2d(1, 15, kernel_size=5),
                                       nn.ReLU(),
